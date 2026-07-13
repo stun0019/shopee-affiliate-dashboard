@@ -18,6 +18,7 @@ const fieldAliases = {
   orders: ["訂單數", "訂單"],
   sales: ["成交金額", "銷售金額"],
   revenue: ["實際分潤", "分潤", "收益"],
+  estimatedCommission: ["預估單筆分潤", "預估分潤"],
   ctr: ["CTR"],
   cvr: ["CVR"],
   epc: ["EPC"],
@@ -51,6 +52,9 @@ const elements = {
   actionHint: document.querySelector("#actionHint"),
   productRows: document.querySelector("#productRows"),
   actionRows: document.querySelector("#actionRows"),
+  recommendList: document.querySelector("#recommendList"),
+  lowPerformanceList: document.querySelector("#lowPerformanceList"),
+  highCommissionList: document.querySelector("#highCommissionList"),
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -126,8 +130,11 @@ function normalizeRow(row) {
   const orders = toNumber(cell(row, "orders"));
   const commissionRate = toRate(cell(row, "commissionRate"));
   const sales = toNumber(cell(row, "sales"));
+  const explicitEstimated = toNumber(cell(row, "estimatedCommission"));
   const revenue = toNumber(cell(row, "revenue"), sales && commissionRate ? sales * commissionRate : 0);
   const status = cell(row, "status") || "未更新";
+  const price = toNumber(cell(row, "price"));
+  const estimatedCommission = explicitEstimated || (price && commissionRate ? price * commissionRate : 0);
 
   return {
     date: dateValue,
@@ -138,8 +145,9 @@ function normalizeRow(row) {
     contentType: cell(row, "contentType") || "未分類",
     product: cell(row, "product") || "未命名商品",
     category: cell(row, "category") || "未分類",
-    price: toNumber(cell(row, "price")),
+    price,
     commissionRate,
+    estimatedCommission,
     impressions,
     interactions: toNumber(cell(row, "interactions")),
     clicks,
@@ -149,6 +157,8 @@ function normalizeRow(row) {
     cvr: toRate(cell(row, "cvr"), clicks ? orders / clicks : null),
     epc: toNumber(cell(row, "epc"), clicks ? revenue / clicks : null),
     status,
+    priority: cell(row, "priority"),
+    pitch: cell(row, "pitch"),
     nextAction: deriveNextAction(cell(row, "nextAction"), status, cell(row, "priority")),
   };
 }
@@ -157,6 +167,7 @@ function render() {
   const monthRows = state.rows.filter((row) => row.month === state.month);
   const totals = summarize(monthRows);
   renderKpis(totals, monthRows);
+  renderOps(monthRows);
   renderCharts(monthRows);
   renderProductRows(monthRows);
   renderActionRows(monthRows);
@@ -207,10 +218,38 @@ function renderCharts(rows) {
   );
 }
 
+function renderOps(rows) {
+  renderOpsList(elements.recommendList, getRecommendedRows(rows), "補上商品名稱、價格、佣金率、狀態後，這裡會自動挑出本週主推商品。", "recommend");
+  renderOpsList(elements.lowPerformanceList, getLowPerformanceRows(rows), "目前沒有低成效警示。若要啟用提醒，請補曝光數、點擊數、訂單數。", "low");
+  renderOpsList(elements.highCommissionList, getHighCommissionRows(rows), "補上價格與佣金率後，這裡會列出高分潤商品。", "high");
+}
+
+function renderOpsList(container, rows, emptyMessage, type) {
+  if (!rows.length) {
+    container.innerHTML = `<div class="ops-empty">${emptyMessage}</div>`;
+    return;
+  }
+
+  container.innerHTML = rows.slice(0, 4).map((row) => {
+    const value = type === "low" ? lowPerformanceReason(row) : `${money(row.estimatedCommission || row.revenue)} / 單筆`;
+    const action = type === "recommend" ? row.nextAction || "安排發文" : type === "high" ? "加碼測試" : row.nextAction || "調整素材";
+    return `
+      <div class="ops-item">
+        <strong>${linkOrText(row.product, primaryUrl(row))}</strong>
+        <div class="ops-meta">
+          <span class="badge ${type === "low" ? "warn" : ""}">${escapeHtml(action)}</span>
+          <span>${escapeHtml(row.category)}</span>
+          <span>${escapeHtml(value)}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
 function renderProductRows(rows) {
-  const topRows = [...rows].sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+  const topRows = [...rows].sort(productRankSort).slice(0, 10);
   if (!topRows.length) {
-    elements.productRows.innerHTML = emptyRow(5, "這個月份還沒有商品資料");
+    elements.productRows.innerHTML = emptyRow(5, "還沒有商品資料。請先在試算表補商品名稱、品類、價格或分潤資料。");
     return;
   }
 
@@ -218,7 +257,7 @@ function renderProductRows(rows) {
     <tr>
       <td class="product-name">${linkOrText(row.product, primaryUrl(row))}</td>
       <td>${escapeHtml(row.category)}</td>
-      <td>${money(row.revenue)}</td>
+      <td>${row.revenue ? money(row.revenue) : `${money(row.estimatedCommission)} 預估`}</td>
       <td>${row.clicks ? money(row.revenue / row.clicks) : "-"}</td>
       <td><span class="badge ${isActionable(row.nextAction) ? "warn" : ""}">${escapeHtml(row.status)}</span></td>
     </tr>
@@ -228,7 +267,7 @@ function renderProductRows(rows) {
 function renderActionRows(rows) {
   const actionRows = getActionRows(rows).slice(0, 12);
   if (!actionRows.length) {
-    elements.actionRows.innerHTML = emptyRow(4, "這個月份沒有待處理項目");
+    elements.actionRows.innerHTML = emptyRow(4, "目前沒有待處理事項。若商品需要追蹤，請補狀態或下次行動欄位。");
     return;
   }
 
@@ -323,7 +362,7 @@ function populateMonthSelect(months) {
 function getActionRows(rows) {
   return rows
     .filter((row) => isActionable(row.nextAction))
-    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    .sort(actionSort);
 }
 
 function isActionable(action) {
@@ -338,6 +377,65 @@ function summarize(rows) {
     clicks: sum(rows, "clicks"),
     impressions: sum(rows, "impressions"),
   };
+}
+
+function getRecommendedRows(rows) {
+  return [...rows]
+    .filter((row) => row.product && (row.status.includes("待發文") || row.priority || row.estimatedCommission || row.revenue))
+    .sort((a, b) => recommendationScore(b) - recommendationScore(a));
+}
+
+function getLowPerformanceRows(rows) {
+  return [...rows]
+    .filter((row) => {
+      const ctrValue = row.impressions ? row.clicks / row.impressions : null;
+      return (row.clicks >= 10 && row.orders === 0) || (row.impressions >= 500 && row.clicks === 0) || (ctrValue !== null && row.impressions >= 500 && ctrValue < 0.01);
+    })
+    .sort((a, b) => b.clicks + b.impressions / 100 - (a.clicks + a.impressions / 100));
+}
+
+function getHighCommissionRows(rows) {
+  return [...rows]
+    .filter((row) => row.estimatedCommission > 0 || row.revenue > 0)
+    .sort((a, b) => (b.estimatedCommission || b.revenue) - (a.estimatedCommission || a.revenue));
+}
+
+function recommendationScore(row) {
+  return priorityScore(row.priority) * 1000
+    + (row.status.includes("待發文") ? 700 : 0)
+    + (row.nextAction ? 160 : 0)
+    + (row.estimatedCommission || 0) * 8
+    + (row.revenue || 0) * 4
+    + (row.clicks || 0);
+}
+
+function productRankSort(a, b) {
+  return (b.revenue - a.revenue)
+    || ((b.estimatedCommission || 0) - (a.estimatedCommission || 0))
+    || (priorityScore(b.priority) - priorityScore(a.priority));
+}
+
+function actionSort(a, b) {
+  return (a.status.includes("待發文") ? -1 : 0)
+    || (b.status.includes("待發文") ? 1 : 0)
+    || (priorityScore(b.priority) - priorityScore(a.priority))
+    || ((b.estimatedCommission || 0) - (a.estimatedCommission || 0))
+    || String(b.date).localeCompare(String(a.date));
+}
+
+function priorityScore(priority) {
+  const value = clean(priority);
+  if (value === "高") return 3;
+  if (value === "中") return 2;
+  if (value === "低") return 1;
+  return 0;
+}
+
+function lowPerformanceReason(row) {
+  if (row.clicks >= 10 && row.orders === 0) return `${number(row.clicks)} 點擊未成交`;
+  if (row.impressions >= 500 && row.clicks === 0) return `${number(row.impressions)} 曝光無點擊`;
+  if (row.impressions) return `CTR ${percent(row.clicks / row.impressions)}`;
+  return "需要檢查素材";
 }
 
 function groupBy(rows, keyGetter) {

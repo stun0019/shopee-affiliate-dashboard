@@ -4,7 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>蝦皮分潤後台</title>
-    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
@@ -105,6 +104,38 @@
           </article>
         </section>
 
+        <section class="ops-grid" aria-label="營運強化提醒">
+          <article class="panel ops-panel recommend-panel">
+            <div class="panel-header">
+              <div>
+                <h3>本週推薦主推商品</h3>
+                <p>優先抓高分潤、高優先級、待發文商品</p>
+              </div>
+            </div>
+            <div class="ops-list" id="recommendList"></div>
+          </article>
+
+          <article class="panel ops-panel">
+            <div class="panel-header">
+              <div>
+                <h3>低成效商品提醒</h3>
+                <p>有曝光或點擊，但轉換偏弱的商品</p>
+              </div>
+            </div>
+            <div class="ops-list" id="lowPerformanceList"></div>
+          </article>
+
+          <article class="panel ops-panel">
+            <div class="panel-header">
+              <div>
+                <h3>高分潤商品提示</h3>
+                <p>單筆預估分潤較高，適合加碼測試</p>
+              </div>
+            </div>
+            <div class="ops-list" id="highCommissionList"></div>
+          </article>
+        </section>
+
         <section class="chart-layout" id="charts">
           <article class="panel wide">
             <div class="panel-header">
@@ -151,7 +182,7 @@
                   <tr>
                     <th>商品</th>
                     <th>品類</th>
-                    <th>分潤</th>
+                    <th>分潤/預估</th>
                     <th>EPC</th>
                     <th>狀態</th>
                   </tr>
