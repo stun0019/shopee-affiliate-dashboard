@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>蝦皮分潤後台</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="主要導覽">
+        <div class="brand">
+          <div class="brand-mark">分</div>
+          <div>
+            <h1>蝦皮分潤後台</h1>
+            <p>Threads 經營追蹤</p>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <a class="nav-item active" href="#overview"><i data-lucide="layout-dashboard"></i><span>總覽</span></a>
+          <a class="nav-item" href="#charts"><i data-lucide="bar-chart-3"></i><span>成效圖表</span></a>
+          <a class="nav-item" href="#products"><i data-lucide="trophy"></i><span>商品排行</span></a>
+          <a class="nav-item" href="#actions"><i data-lucide="list-checks"></i><span>待處理</span></a>
+        </nav>
+
+        <div class="source-card">
+          <div class="source-status" id="sourceStatus">
+            <span class="status-dot"></span>
+            <span>準備讀取資料</span>
+          </div>
+          <label class="file-picker">
+            <i data-lucide="upload"></i>
+            <span>匯入 CSV</span>
+            <input id="csvFile" type="file" accept=".csv,text/csv" />
+          </label>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Affiliate Operations</p>
+            <h2>今日分潤作戰室</h2>
+          </div>
+          <div class="toolbar">
+            <label class="select-label" for="monthSelect">月份</label>
+            <select id="monthSelect"></select>
+            <button class="icon-button" id="refreshButton" type="button" aria-label="重新整理資料" title="重新整理資料">
+              <i data-lucide="refresh-cw"></i>
+            </button>
+          </div>
+        </header>
+
+        <section class="alert hidden" id="loadAlert" role="status"></section>
+
+        <section class="kpi-grid" id="overview" aria-label="本月重點指標">
+          <article class="kpi-card primary">
+            <div class="kpi-heading">
+              <span>本月實際分潤</span>
+              <i data-lucide="badge-dollar-sign"></i>
+            </div>
+            <strong id="monthlyRevenue">NT$0</strong>
+            <div class="goal-track">
+              <div id="goalBar"></div>
+            </div>
+            <p id="goalText">距離 NT$5,000 還差 NT$5,000</p>
+          </article>
+
+          <article class="kpi-card">
+            <div class="kpi-heading">
+              <span>本月訂單數</span>
+              <i data-lucide="shopping-bag"></i>
+            </div>
+            <strong id="monthlyOrders">0</strong>
+            <p id="conversionHint">CVR -</p>
+          </article>
+
+          <article class="kpi-card">
+            <div class="kpi-heading">
+              <span>本月點擊數</span>
+              <i data-lucide="mouse-pointer-click"></i>
+            </div>
+            <strong id="monthlyClicks">0</strong>
+            <p id="ctrHint">CTR -</p>
+          </article>
+
+          <article class="kpi-card">
+            <div class="kpi-heading">
+              <span>本月 EPC</span>
+              <i data-lucide="activity"></i>
+            </div>
+            <strong id="monthlyEpc">-</strong>
+            <p>每次點擊收益</p>
+          </article>
+
+          <article class="kpi-card action-card">
+            <div class="kpi-heading">
+              <span>今日待處理</span>
+              <i data-lucide="bell-ring"></i>
+            </div>
+            <strong id="actionCount">0</strong>
+            <p id="actionHint">目前沒有需要處理的項目</p>
+          </article>
+        </section>
+
+        <section class="chart-layout" id="charts">
+          <article class="panel wide">
+            <div class="panel-header">
+              <div>
+                <h3>每日分潤</h3>
+                <p>追蹤本月每天實際分潤累積狀況</p>
+              </div>
+            </div>
+            <div class="chart-box"><canvas id="dailyRevenueChart"></canvas></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <h3>品類成效</h3>
+                <p>依品類加總實際分潤</p>
+              </div>
+            </div>
+            <div class="chart-box"><canvas id="categoryChart"></canvas></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <div>
+                <h3>內容類型比較</h3>
+                <p>分潤、CTR、CVR 綜合觀察</p>
+              </div>
+            </div>
+            <div class="chart-box"><canvas id="contentChart"></canvas></div>
+          </article>
+        </section>
+
+        <section class="table-layout">
+          <article class="panel" id="products">
+            <div class="panel-header">
+              <div>
+                <h3>商品排行榜</h3>
+                <p>依實際分潤排序 Top 10</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>商品</th>
+                    <th>品類</th>
+                    <th>分潤</th>
+                    <th>EPC</th>
+                    <th>狀態</th>
+                  </tr>
+                </thead>
+                <tbody id="productRows"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="panel" id="actions">
+            <div class="panel-header">
+              <div>
+                <h3>待處理清單</h3>
+                <p>下次行動不是空白或觀察的紀錄</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>日期</th>
+                    <th>商品</th>
+                    <th>建議行動</th>
+                    <th>分潤</th>
+                  </tr>
+                </thead>
+                <tbody id="actionRows"></tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
