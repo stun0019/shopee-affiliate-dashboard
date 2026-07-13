@@ -1,25 +1,30 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/1KqTwe-hXAaQW4CHMepyje6iCyzmffppPXZ8-aGLd29U/export?format=csv&gid=0";
 const MONTHLY_GOAL = 5000;
 
-const fields = {
-  date: "日期",
-  month: "月份",
-  postUrl: "貼文URL",
-  contentType: "內容類型",
-  product: "商品名稱",
-  category: "品類",
-  price: "售價",
-  commissionRate: "佣金率",
-  impressions: "曝光數",
-  interactions: "互動數",
-  clicks: "點擊數",
-  orders: "訂單數",
-  revenue: "實際分潤",
-  ctr: "CTR",
-  cvr: "CVR",
-  epc: "EPC",
-  status: "狀態",
-  nextAction: "下次行動",
+const fieldAliases = {
+  date: ["日期", "紀錄日期", "發文日期"],
+  month: ["月份", "月分"],
+  postUrl: ["貼文URL", "貼文 URL", "Threads貼文", "Threads URL"],
+  productUrl: ["蝦皮商品連結", "商品連結", "商品URL", "商品 URL"],
+  affiliateUrl: ["分潤短連結", "分潤連結", "聯盟連結", "短連結"],
+  contentType: ["內容類型", "文案類型"],
+  product: ["商品名稱", "品名"],
+  category: ["品類", "分類"],
+  price: ["售價", "價格"],
+  commissionRate: ["佣金率", "分潤率"],
+  impressions: ["曝光數", "曝光"],
+  interactions: ["互動數", "互動"],
+  clicks: ["點擊數", "點擊"],
+  orders: ["訂單數", "訂單"],
+  sales: ["成交金額", "銷售金額"],
+  revenue: ["實際分潤", "分潤", "收益"],
+  ctr: ["CTR"],
+  cvr: ["CVR"],
+  epc: ["EPC"],
+  status: ["狀態"],
+  nextAction: ["下次行動", "建議行動"],
+  priority: ["優先級", "優先順序"],
+  pitch: ["一句賣點", "賣點"],
 };
 
 const state = {
@@ -114,32 +119,37 @@ function receiveRows(rows, message) {
 }
 
 function normalizeRow(row) {
-  const dateValue = clean(row[fields.date]);
-  const monthValue = clean(row[fields.month]) || monthFromDate(dateValue);
-  const clicks = toNumber(row[fields.clicks]);
-  const impressions = toNumber(row[fields.impressions]);
-  const orders = toNumber(row[fields.orders]);
-  const revenue = toNumber(row[fields.revenue]);
+  const dateValue = cell(row, "date");
+  const monthValue = cell(row, "month") || monthFromDate(dateValue) || currentMonthKey();
+  const clicks = toNumber(cell(row, "clicks"));
+  const impressions = toNumber(cell(row, "impressions"));
+  const orders = toNumber(cell(row, "orders"));
+  const commissionRate = toRate(cell(row, "commissionRate"));
+  const sales = toNumber(cell(row, "sales"));
+  const revenue = toNumber(cell(row, "revenue"), sales && commissionRate ? sales * commissionRate : 0);
+  const status = cell(row, "status") || "未更新";
 
   return {
     date: dateValue,
     month: monthValue,
-    postUrl: clean(row[fields.postUrl]),
-    contentType: clean(row[fields.contentType]) || "未分類",
-    product: clean(row[fields.product]) || "未命名商品",
-    category: clean(row[fields.category]) || "未分類",
-    price: toNumber(row[fields.price]),
-    commissionRate: toRate(row[fields.commissionRate]),
+    postUrl: cell(row, "postUrl"),
+    productUrl: cell(row, "productUrl"),
+    affiliateUrl: cell(row, "affiliateUrl"),
+    contentType: cell(row, "contentType") || "未分類",
+    product: cell(row, "product") || "未命名商品",
+    category: cell(row, "category") || "未分類",
+    price: toNumber(cell(row, "price")),
+    commissionRate,
     impressions,
-    interactions: toNumber(row[fields.interactions]),
+    interactions: toNumber(cell(row, "interactions")),
     clicks,
     orders,
     revenue,
-    ctr: toRate(row[fields.ctr], impressions ? clicks / impressions : null),
-    cvr: toRate(row[fields.cvr], clicks ? orders / clicks : null),
-    epc: toNumber(row[fields.epc], clicks ? revenue / clicks : null),
-    status: clean(row[fields.status]) || "未更新",
-    nextAction: clean(row[fields.nextAction]),
+    ctr: toRate(cell(row, "ctr"), impressions ? clicks / impressions : null),
+    cvr: toRate(cell(row, "cvr"), clicks ? orders / clicks : null),
+    epc: toNumber(cell(row, "epc"), clicks ? revenue / clicks : null),
+    status,
+    nextAction: deriveNextAction(cell(row, "nextAction"), status, cell(row, "priority")),
   };
 }
 
@@ -206,7 +216,7 @@ function renderProductRows(rows) {
 
   elements.productRows.innerHTML = topRows.map((row) => `
     <tr>
-      <td class="product-name">${linkOrText(row.product, row.postUrl)}</td>
+      <td class="product-name">${linkOrText(row.product, primaryUrl(row))}</td>
       <td>${escapeHtml(row.category)}</td>
       <td>${money(row.revenue)}</td>
       <td>${row.clicks ? money(row.revenue / row.clicks) : "-"}</td>
@@ -225,7 +235,7 @@ function renderActionRows(rows) {
   elements.actionRows.innerHTML = actionRows.map((row) => `
     <tr>
       <td>${escapeHtml(row.date || "-")}</td>
-      <td class="product-name">${linkOrText(row.product, row.postUrl)}</td>
+      <td class="product-name">${linkOrText(row.product, primaryUrl(row))}</td>
       <td><span class="badge warn">${escapeHtml(row.nextAction)}</span></td>
       <td>${money(row.revenue)}</td>
     </tr>
@@ -269,6 +279,39 @@ function parseCsv(text) {
     record[header] = cells[index] ?? "";
     return record;
   }, {}));
+}
+
+function cell(row, key) {
+  const aliases = fieldAliases[key] || [];
+  const normalizedMap = Object.keys(row).reduce((map, header) => {
+    map[normalizeHeader(header)] = row[header];
+    return map;
+  }, {});
+
+  for (const alias of aliases) {
+    const value = normalizedMap[normalizeHeader(alias)];
+    if (clean(value)) return clean(value);
+  }
+
+  return "";
+}
+
+function normalizeHeader(header) {
+  return clean(header).replace(/\s+/g, "").toLowerCase();
+}
+
+function deriveNextAction(action, status, priority) {
+  if (clean(action)) return clean(action);
+  const statusValue = clean(status);
+  if (statusValue.includes("待發文")) return "發文";
+  if (statusValue.includes("有點擊")) return "觀察轉單";
+  if (statusValue.includes("成交")) return "加碼/變體文";
+  if (clean(priority) === "高") return "優先測試";
+  return "";
+}
+
+function primaryUrl(row) {
+  return row.postUrl || row.affiliateUrl || row.productUrl;
 }
 
 function populateMonthSelect(months) {
