@@ -3,6 +3,7 @@ const MONTHLY_GOAL = 5000;
 
 const fieldAliases = {
   date: ["日期", "紀錄日期", "發文日期"],
+  selectionDate: ["選品日期", "評估日期"],
   month: ["月份", "月分"],
   postUrl: ["貼文URL", "貼文 URL", "Threads貼文", "Threads URL"],
   productUrl: ["蝦皮商品連結", "商品連結", "商品URL", "商品 URL"],
@@ -50,7 +51,6 @@ const elements = {
   ctrHint: document.querySelector("#ctrHint"),
   actionCount: document.querySelector("#actionCount"),
   actionHint: document.querySelector("#actionHint"),
-  productRows: document.querySelector("#productRows"),
   actionRows: document.querySelector("#actionRows"),
   recommendList: document.querySelector("#recommendList"),
   lowPerformanceList: document.querySelector("#lowPerformanceList"),
@@ -123,7 +123,7 @@ function receiveRows(rows, message) {
 }
 
 function normalizeRow(row) {
-  const dateValue = cell(row, "date");
+  const dateValue = cell(row, "selectionDate") || cell(row, "date");
   const monthValue = cell(row, "month") || monthFromDate(dateValue) || currentMonthKey();
   const clicks = toNumber(cell(row, "clicks"));
   const impressions = toNumber(cell(row, "impressions"));
@@ -169,7 +169,6 @@ function render() {
   renderKpis(totals, monthRows);
   renderOps(monthRows);
   renderCharts(monthRows);
-  renderProductRows(monthRows);
   renderActionRows(monthRows);
 }
 
@@ -187,7 +186,7 @@ function renderKpis(totals, monthRows) {
   elements.conversionHint.textContent = `CVR ${totals.clicks ? percent(totals.orders / totals.clicks) : "-"}`;
   elements.ctrHint.textContent = `CTR ${totals.impressions ? percent(totals.clicks / totals.impressions) : "-"}`;
   elements.actionCount.textContent = number(actionRows.length);
-  elements.actionHint.textContent = actionRows.length ? `${actionRows[0].product} 需要 ${actionRows[0].nextAction}` : "目前沒有需要處理的項目";
+  elements.actionHint.textContent = actionRows.length ? `${actionRows[0].product}：${actionRows[0].status}` : "目前沒有需要處理的項目";
 }
 
 function renderCharts(rows) {
@@ -246,28 +245,10 @@ function renderOpsList(container, rows, emptyMessage, type) {
   }).join("");
 }
 
-function renderProductRows(rows) {
-  const topRows = [...rows].sort(productRankSort).slice(0, 10);
-  if (!topRows.length) {
-    elements.productRows.innerHTML = emptyRow(5, "還沒有商品資料。請先在試算表補商品名稱、品類、價格或分潤資料。");
-    return;
-  }
-
-  elements.productRows.innerHTML = topRows.map((row) => `
-    <tr>
-      <td class="product-name">${linkOrText(row.product, primaryUrl(row))}</td>
-      <td>${escapeHtml(row.category)}</td>
-      <td>${row.revenue ? money(row.revenue) : `${money(row.estimatedCommission)} 預估`}</td>
-      <td>${row.clicks ? money(row.revenue / row.clicks) : "-"}</td>
-      <td><span class="badge ${isActionable(row.nextAction) ? "warn" : ""}">${escapeHtml(row.status)}</span></td>
-    </tr>
-  `).join("");
-}
-
 function renderActionRows(rows) {
   const actionRows = getActionRows(rows).slice(0, 12);
   if (!actionRows.length) {
-    elements.actionRows.innerHTML = emptyRow(4, "目前沒有待處理事項。若商品需要追蹤，請補狀態或下次行動欄位。");
+    elements.actionRows.innerHTML = emptyRow(4, "目前沒有待處理事項。若商品需要追蹤，請將狀態設為待發文。");
     return;
   }
 
@@ -275,8 +256,8 @@ function renderActionRows(rows) {
     <tr>
       <td>${escapeHtml(row.date || "-")}</td>
       <td class="product-name">${linkOrText(row.product, primaryUrl(row))}</td>
-      <td><span class="badge warn">${escapeHtml(row.nextAction)}</span></td>
-      <td>${money(row.revenue)}</td>
+      <td><span class="badge warn">${escapeHtml(row.status)}</span></td>
+      <td>${percent(row.commissionRate)}</td>
     </tr>
   `).join("");
 }
@@ -361,13 +342,14 @@ function populateMonthSelect(months) {
 
 function getActionRows(rows) {
   return rows
-    .filter((row) => isActionable(row.nextAction))
+    .filter((row) => isPendingStatus(row.status))
     .sort(actionSort);
 }
 
-function isActionable(action) {
-  const value = clean(action);
-  return value && value !== "觀察";
+function isPendingStatus(status) {
+  const value = clean(status);
+  const excludedStatuses = ["未更新", "觀察", "淘汰", "已發文", "已完成", "完成", "停止主推"];
+  return Boolean(value) && !excludedStatuses.some((excluded) => value.includes(excluded));
 }
 
 function summarize(rows) {
@@ -407,12 +389,6 @@ function recommendationScore(row) {
     + (row.estimatedCommission || 0) * 8
     + (row.revenue || 0) * 4
     + (row.clicks || 0);
-}
-
-function productRankSort(a, b) {
-  return (b.revenue - a.revenue)
-    || ((b.estimatedCommission || 0) - (a.estimatedCommission || 0))
-    || (priorityScore(b.priority) - priorityScore(a.priority));
 }
 
 function actionSort(a, b) {

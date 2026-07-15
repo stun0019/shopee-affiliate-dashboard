@@ -20,7 +20,6 @@
         <nav class="nav-list">
           <a class="nav-item active" href="#overview"><i data-lucide="layout-dashboard"></i><span>總覽</span></a>
           <a class="nav-item" href="#charts"><i data-lucide="bar-chart-3"></i><span>成效圖表</span></a>
-          <a class="nav-item" href="#products"><i data-lucide="trophy"></i><span>商品排行</span></a>
           <a class="nav-item" href="#actions"><i data-lucide="list-checks"></i><span>待處理</span></a>
         </nav>
 
@@ -169,34 +168,11 @@
         </section>
 
         <section class="table-layout">
-          <article class="panel" id="products">
-            <div class="panel-header">
-              <div>
-                <h3>商品排行榜</h3>
-                <p>依實際分潤排序 Top 10</p>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>商品</th>
-                    <th>品類</th>
-                    <th>分潤/預估</th>
-                    <th>EPC</th>
-                    <th>狀態</th>
-                  </tr>
-                </thead>
-                <tbody id="productRows"></tbody>
-              </table>
-            </div>
-          </article>
-
-          <article class="panel" id="actions">
+          <article class="panel wide" id="actions">
             <div class="panel-header">
               <div>
                 <h3>待處理清單</h3>
-                <p>下次行動不是空白或觀察的紀錄</p>
+                <p>依選品日期整理尚待執行的商品</p>
               </div>
             </div>
             <div class="table-wrap">
@@ -205,8 +181,8 @@
                   <tr>
                     <th>日期</th>
                     <th>商品</th>
-                    <th>建議行動</th>
-                    <th>分潤</th>
+                    <th>狀態</th>
+                    <th>分潤率</th>
                   </tr>
                 </thead>
                 <tbody id="actionRows"></tbody>
