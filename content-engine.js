@@ -20,12 +20,12 @@
   });
 
   const FIELD_ALIASES = Object.freeze({
-    productName: ["productName", "商品名稱"],
-    sellingPoint: ["sellingPoint", "賣點"],
-    recommendationAngle: ["recommendationAngle", "postAngle", "推薦角度"],
-    audience: ["audience", "族群"],
-    risk: ["risk", "可能風險"],
-    affiliateUrl: ["affiliateUrl", "分潤連結"],
+    productName: ["productName", "商品名稱", "品名"],
+    sellingPoint: ["sellingPoint", "賣點", "一句賣點"],
+    recommendationAngle: ["recommendationAngle", "postAngle", "推薦角度", "發文角度", "推薦發文角度"],
+    audience: ["audience", "族群", "受眾", "適合族群"],
+    risk: ["risk", "可能風險", "風險"],
+    affiliateUrl: ["affiliateUrl", "分潤連結", "分潤短連結"],
     weeklyRole: ["weeklyRole", "本週角色"],
   });
 
@@ -37,6 +37,7 @@
     /(?:熱銷|爆賣|銷量|已售|萬人購買|人手一件)/giu,
     /(?:保證|一定|百分之百|100\s*%|立即見效|根治|治療|治癒|改善|有效|無副作用)/giu,
   ]);
+  const UNSUPPORTED_DURATION_PATTERN = /(?:續命|維持|持續)\s*[\d,.]+\s*(?:分鐘|小時|天)/giu;
 
   function firstValue(input, keys) {
     for (const key of keys) {
@@ -61,7 +62,7 @@
   }
 
   function sanitizeClaim(value, fallback = "有個細節值得留意") {
-    let cleaned = removeUrls(value);
+    let cleaned = removeUrls(value).replace(UNSUPPORTED_DURATION_PATTERN, "");
     const containsUnsafeClaim = UNSAFE_PATTERNS.some((pattern) => {
       pattern.lastIndex = 0;
       const matched = pattern.test(cleaned);
@@ -97,8 +98,13 @@
     return isValidAffiliateUrl(value) ? new URL(String(value).trim()).toString() : "";
   }
 
-  function inferContentType(weeklyRole, recommendationAngle) {
+  function inferContentType(weeklyRole, recommendationAngle, audience) {
     const context = `${weeklyRole} ${recommendationAngle}`;
+    if (
+      audience
+      && (/高分享|族群|實用提醒/gu.test(context)
+        || /噴|擦|按|放|套|掛|裝|倒|貼/gu.test(recommendationAngle))
+    ) return "族群點名";
     if (/避雷|風險|提醒|注意/gu.test(context)) return "風險提醒";
     if (/比較|對比|反差|省時/gu.test(context)) return "反差觀察";
     if (/情境|日常|生活|通勤|租屋/gu.test(context)) return "情境共鳴";
@@ -108,6 +114,7 @@
 
   function buildHook(contentType) {
     const hooks = {
+      族群點名: "這個真的拜託先看一下。",
       風險提醒: "先別急著跟風，真正該看的不是聲量。",
       反差觀察: "看起來不起眼，差別偏偏藏在小地方。",
       情境共鳴: "有些日常卡點，小到很煩、卻天天遇到。",
@@ -123,9 +130,17 @@
     const angle = sanitizeClaim(fields.recommendationAngle, "先看是否符合自己的需求");
     const audience = sanitizeClaim(fields.audience, "正在做選擇的人");
 
+    if (contentType === "族群點名") {
+      return [
+        `${audience}真的拜託先看一下！`,
+        `${productName}，${sellingPoint}。`,
+        `使用時可以先從「${angle}」這個動作開始。`,
+      ].join("\n");
+    }
+
     return [
       buildHook(contentType),
-      `${productName}讓我注意到的是：${sellingPoint}。`,
+      `${productName}讓人注意到的是：${sellingPoint}。`,
       `如果你是${audience}，可以從「${angle}」這點判斷適不適合。`,
     ].join("\n");
   }
@@ -139,7 +154,7 @@
 
   function createThreadsDraft(input) {
     const fields = normalizeInput(input);
-    const contentType = inferContentType(fields.weeklyRole, fields.recommendationAngle);
+    const contentType = inferContentType(fields.weeklyRole, fields.recommendationAngle, fields.audience);
 
     return Object.freeze({
       mainText: buildMainText(fields, contentType),

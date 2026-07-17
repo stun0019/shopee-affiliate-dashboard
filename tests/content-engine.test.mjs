@@ -73,6 +73,22 @@ test("不採用使用經驗、價格、優惠、銷量或功效宣稱", () => {
   );
 });
 
+test("高分享型會點名族群與具體動作，但移除無證據的時間效果", () => {
+  const draft = createThreadsDraft({
+    商品名稱: "安全帽涼感噴霧",
+    賣點: "安全帽噴兩下，續命20分鐘",
+    發文角度: "騎車前往安全帽裡噴兩下",
+    族群: "每天騎車通勤的人",
+    分潤連結: "https://s.shopee.tw/cooling",
+    本週角色: "高分享實用提醒",
+  });
+
+  assert.equal(draft.contentType, "族群點名");
+  assert.match(draft.mainText, /^每天騎車通勤的人真的拜託先看一下/u);
+  assert.match(draft.mainText, /安全帽噴兩下/u);
+  assert.doesNotMatch(draft.mainText, /續命\s*20\s*分鐘/u);
+});
+
 test("合法狀態依序轉換，approved 需要有效連結", () => {
   const draft = createThreadsDraft(baseProduct);
 
