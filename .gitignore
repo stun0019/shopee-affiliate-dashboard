@@ -11,3 +11,34 @@ Thumbs.db
 
 # Local exports
 *.zip
+
+# Local environment files; keep reviewed templates
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.*.sample
+!.env.template
+!.env.*.template
+
+# Private keys and credential stores
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+/secrets/
+/credentials/
+
+# Local tabular exports: keep exports in this dedicated root folder
+/local-exports/
+
+# Local working and handoff material, anchored to repository root
+/work/
+/handoff/
+/temp/
+/tmp/
+
+# Local Codex linked worktrees, if ever created inside the repository
+/.codex-worktrees/
