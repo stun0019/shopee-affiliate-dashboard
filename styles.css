@@ -20,6 +20,7 @@
 body {
   margin: 0;
   min-height: 100vh;
+  overflow-x: clip;
   background: var(--bg);
   color: var(--text);
   font-family: "Noto Sans TC", "Microsoft JhengHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -97,7 +98,7 @@ input {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 42px;
+  min-height: 44px;
   padding: 10px 12px;
   border-radius: 8px;
 }
@@ -117,21 +118,19 @@ input {
 }
 
 .source-card {
-  margin-top: auto;
-  padding: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
+  padding: 20px;
   display: grid;
-  gap: 12px;
+  align-content: start;
+  gap: 14px;
 }
 
 .source-status {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #dbe8df;
-  font-size: 13px;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 800;
 }
 
 .status-dot {
@@ -150,14 +149,17 @@ input {
 }
 
 .file-picker {
-  min-height: 38px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  min-height: 44px;
+  border: 1px solid var(--line);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   cursor: pointer;
+  color: var(--green);
+  font-weight: 800;
+  background: var(--green-soft);
 }
 
 .file-picker input {
@@ -169,6 +171,7 @@ input {
   display: grid;
   gap: 22px;
   align-content: start;
+  min-width: 0;
 }
 
 .topbar {
@@ -191,6 +194,12 @@ input {
   letter-spacing: 0;
 }
 
+.topbar-note {
+  margin-top: 8px !important;
+  color: var(--muted);
+  font-size: 14px;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -204,7 +213,7 @@ input {
 
 select,
 .icon-button {
-  height: 42px;
+  min-height: 44px;
   border: 1px solid var(--line);
   background: var(--panel);
   color: var(--text);
@@ -217,7 +226,7 @@ select {
 }
 
 .icon-button {
-  width: 42px;
+  width: 44px;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -235,9 +244,141 @@ select {
   display: none;
 }
 
+.daily-start,
+.weekly-focus,
+.performance-section {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.section-heading h3,
+.workflow-card h3 {
+  margin: 3px 0 0;
+  font-size: 20px;
+}
+
+.section-heading > p {
+  max-width: 560px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.section-kicker,
+.card-label {
+  margin: 0;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.daily-grid {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.7fr) minmax(0, 2fr);
+  gap: 16px;
+}
+
+.source-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.workflow-card {
+  padding: 20px;
+}
+
+.workflow-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 20px;
+}
+
+.action-summary {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--orange-soft);
+  color: #75400f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.action-summary strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflow-steps li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+}
+
+.workflow-steps li > span {
+  grid-row: 1 / 3;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.workflow-steps strong {
+  font-size: 14px;
+}
+
+.workflow-steps small {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.action-hint {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .kpi-grid {
   display: grid;
-  grid-template-columns: 1.45fr repeat(4, minmax(150px, 1fr));
+  grid-template-columns: 1.45fr repeat(3, minmax(150px, 1fr));
   gap: 14px;
 }
 
@@ -307,11 +448,6 @@ select {
   transition: width 300ms ease;
 }
 
-.action-card {
-  border-color: #f3d0a4;
-  background: #fffaf3;
-}
-
 .ops-grid,
 .chart-layout,
 .table-layout {
@@ -330,6 +466,38 @@ select {
 
 .recommend-panel {
   border-color: #bdddc6;
+}
+
+.test-panel {
+  border-color: #ead7a4;
+}
+
+.value-panel {
+  border-color: #efc5ad;
+}
+
+.focus-tag {
+  display: inline-flex;
+  margin-bottom: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.focus-tag.stable {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.focus-tag.test {
+  color: #80600e;
+  background: #fff4cc;
+}
+
+.focus-tag.value {
+  color: #a84f20;
+  background: #ffeadf;
 }
 
 .ops-list {
@@ -476,6 +644,13 @@ a:hover {
   text-decoration: underline;
 }
 
+.ops-item a,
+td a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
 @media (max-width: 1120px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -492,11 +667,6 @@ a:hover {
   .nav-list {
     display: flex;
     flex-wrap: wrap;
-  }
-
-  .source-card {
-    margin-top: 0;
-    margin-left: auto;
   }
 
   .kpi-grid {
@@ -529,10 +699,6 @@ a:hover {
     flex: 1 1 42%;
   }
 
-  .source-card {
-    width: 100%;
-  }
-
   .topbar {
     align-items: stretch;
     flex-direction: column;
@@ -540,13 +706,30 @@ a:hover {
 
   .toolbar {
     justify-content: space-between;
+    flex-wrap: wrap;
   }
 
+  .daily-grid,
   .kpi-grid,
   .ops-grid,
   .chart-layout,
   .table-layout {
     grid-template-columns: 1fr;
+  }
+
+  .section-heading,
+  .workflow-heading {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .workflow-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .action-summary {
+    justify-content: space-between;
   }
 
   .kpi-card {
@@ -555,5 +738,96 @@ a:hover {
 
   .chart-box {
     height: 280px;
+  }
+
+  .table-wrap {
+    overflow: visible;
+    padding: 0 12px 12px;
+  }
+
+  table,
+  tbody,
+  tr,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  tbody {
+    display: grid;
+    gap: 10px;
+  }
+
+  tbody tr {
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-soft);
+  }
+
+  tbody td {
+    display: grid;
+    grid-template-columns: 76px minmax(0, 1fr);
+    gap: 10px;
+    padding: 8px 0;
+    border-top: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  tbody td::before {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  tbody td:nth-child(1)::before { content: "日期"; }
+  tbody td:nth-child(2)::before { content: "商品"; }
+  tbody td:nth-child(3)::before { content: "狀態"; }
+  tbody td:nth-child(4)::before { content: "分潤率"; }
+
+  tbody td.empty-row {
+    display: block;
+    padding: 14px 4px;
+  }
+
+  tbody td.empty-row::before {
+    content: none;
+  }
+
+  .product-name {
+    max-width: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .main-content,
+  .sidebar {
+    padding: 14px;
+  }
+
+  .nav-item {
+    flex-basis: 100%;
+  }
+
+  .workflow-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-box {
+    height: 240px;
+    padding-inline: 10px;
   }
 }

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>蝦皮分潤後台</title>
-    <link rel="stylesheet" href="./styles.css?v=0.5" />
+    <link rel="stylesheet" href="./styles.css?v=0.6" />
   </head>
   <body>
     <div class="app-shell">
@@ -18,29 +18,18 @@
         </div>
 
         <nav class="nav-list">
-          <a class="nav-item active" href="#overview"><i data-lucide="layout-dashboard"></i><span>總覽</span></a>
-          <a class="nav-item" href="#charts"><i data-lucide="bar-chart-3"></i><span>成效圖表</span></a>
-          <a class="nav-item" href="#actions"><i data-lucide="list-checks"></i><span>待處理</span></a>
+          <a class="nav-item active" href="#overview"><i data-lucide="layout-dashboard"></i><span>每日工作台</span></a>
+          <a class="nav-item" href="#actions"><i data-lucide="list-checks"></i><span>月份未完成</span></a>
+          <a class="nav-item" href="#charts"><i data-lucide="bar-chart-3"></i><span>成效分析</span></a>
         </nav>
-
-        <div class="source-card">
-          <div class="source-status" id="sourceStatus">
-            <span class="status-dot"></span>
-            <span>準備讀取資料</span>
-          </div>
-          <label class="file-picker">
-            <i data-lucide="upload"></i>
-            <span>匯入 CSV</span>
-            <input id="csvFile" type="file" accept=".csv,text/csv" />
-          </label>
-        </div>
       </aside>
 
       <main class="main-content">
         <header class="topbar">
           <div>
-            <p class="eyebrow">Affiliate Operations</p>
-            <h2>今日分潤作戰室</h2>
+            <p class="eyebrow">Daily Affiliate Workspace</p>
+            <h2>每日分潤工作台</h2>
+            <p class="topbar-note">先確認資料，再依流程完成今天的主推工作。</p>
           </div>
           <div class="toolbar">
             <label class="select-label" for="monthSelect">月份</label>
@@ -53,126 +42,103 @@
 
         <section class="alert hidden" id="loadAlert" role="status"></section>
 
-        <section class="kpi-grid" id="overview" aria-label="本月重點指標">
-          <article class="kpi-card primary">
-            <div class="kpi-heading">
-              <span>本月實際分潤</span>
-              <i data-lucide="badge-dollar-sign"></i>
+        <section class="daily-start" id="overview" aria-labelledby="dailyStartTitle">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">今日執行</p>
+              <h3 id="dailyStartTitle">確認資料與推進工作流程</h3>
             </div>
-            <strong id="monthlyRevenue">NT$0</strong>
-            <div class="goal-track">
-              <div id="goalBar"></div>
-            </div>
-            <p id="goalText">距離 NT$5,000 還差 NT$5,000</p>
-          </article>
+            <p>月份篩選會同步影響下方推薦、未完成項目與成效資料。</p>
+          </div>
 
-          <article class="kpi-card">
-            <div class="kpi-heading">
-              <span>本月訂單數</span>
-              <i data-lucide="shopping-bag"></i>
-            </div>
-            <strong id="monthlyOrders">0</strong>
-            <p id="conversionHint">CVR -</p>
-          </article>
+          <div class="daily-grid">
+            <article class="source-card panel">
+              <div class="card-label">資料來源狀態</div>
+              <div class="source-status" id="sourceStatus">
+                <span class="status-dot"></span>
+                <span>準備讀取資料</span>
+              </div>
+              <p>可讀取預設資料，或改用你的 CSV 更新工作台。</p>
+              <label class="file-picker">
+                <i data-lucide="upload"></i>
+                <span>匯入 CSV</span>
+                <input id="csvFile" type="file" accept=".csv,text/csv" />
+              </label>
+            </article>
 
-          <article class="kpi-card">
-            <div class="kpi-heading">
-              <span>本月點擊數</span>
-              <i data-lucide="mouse-pointer-click"></i>
-            </div>
-            <strong id="monthlyClicks">0</strong>
-            <p id="ctrHint">CTR -</p>
-          </article>
-
-          <article class="kpi-card">
-            <div class="kpi-heading">
-              <span>本月 EPC</span>
-              <i data-lucide="activity"></i>
-            </div>
-            <strong id="monthlyEpc">-</strong>
-            <p>每次點擊收益</p>
-          </article>
-
-          <article class="kpi-card action-card">
-            <div class="kpi-heading">
-              <span>今日待處理</span>
-              <i data-lucide="bell-ring"></i>
-            </div>
-            <strong id="actionCount">0</strong>
-            <p id="actionHint">目前沒有需要處理的項目</p>
-          </article>
+            <article class="workflow-card panel">
+              <div class="workflow-heading">
+                <div>
+                  <div class="card-label">今日工作流程</div>
+                  <h3>從選品一路推進到成效回填</h3>
+                </div>
+                <div class="action-summary" aria-label="所選月份未完成項目數">
+                  <span>所選月份未完成</span>
+                  <strong id="actionCount">0</strong>
+                </div>
+              </div>
+              <ol class="workflow-steps" aria-label="分潤工作四階段">
+                <li><span>1</span><strong>待選品</strong><small>確認受眾與商品</small></li>
+                <li><span>2</span><strong>待寫文</strong><small>整理賣點與素材</small></li>
+                <li><span>3</span><strong>待發布</strong><small>完成連結與排程</small></li>
+                <li><span>4</span><strong>待回填</strong><small>補上曝光與成交</small></li>
+              </ol>
+              <p class="action-hint" id="actionHint">目前沒有需要處理的項目</p>
+            </article>
+          </div>
         </section>
 
-        <section class="ops-grid" aria-label="營運強化提醒">
-          <article class="panel ops-panel recommend-panel">
-            <div class="panel-header">
-              <div>
-                <h3>本週推薦主推商品</h3>
-                <p>優先抓高分潤、高優先級、待發文商品</p>
-              </div>
+        <section class="weekly-focus" aria-labelledby="weeklyFocusTitle">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">本週主推</p>
+              <h3 id="weeklyFocusTitle">用三種角色安排商品組合</h3>
             </div>
-            <div class="ops-list" id="recommendList"></div>
-          </article>
+            <p>兼顧穩定成交、話題探索與高分潤機會，避免只押單一商品。</p>
+          </div>
 
-          <article class="panel ops-panel">
-            <div class="panel-header">
-              <div>
-                <h3>低成效商品提醒</h3>
-                <p>有曝光或點擊，但轉換偏弱的商品</p>
+          <div class="ops-grid" aria-label="本週推薦商品組合">
+            <article class="panel ops-panel recommend-panel">
+              <div class="panel-header">
+                <div>
+                  <span class="focus-tag stable">穩定成交</span>
+                  <h3>本週核心主推</h3>
+                  <p>綜合優先級、待發文狀態與成交價值排序。</p>
+                </div>
               </div>
-            </div>
-            <div class="ops-list" id="lowPerformanceList"></div>
-          </article>
+              <div class="ops-list" id="recommendList"></div>
+            </article>
 
-          <article class="panel ops-panel">
-            <div class="panel-header">
-              <div>
-                <h3>高分潤商品提示</h3>
-                <p>單筆預估分潤較高，適合加碼測試</p>
+            <article class="panel ops-panel test-panel">
+              <div class="panel-header">
+                <div>
+                  <span class="focus-tag test">話題測試</span>
+                  <h3>換角度再測一次</h3>
+                  <p>已有曝光或點擊但轉換偏弱，適合測新切角。</p>
+                </div>
               </div>
-            </div>
-            <div class="ops-list" id="highCommissionList"></div>
-          </article>
-        </section>
+              <div class="ops-list" id="lowPerformanceList"></div>
+            </article>
 
-        <section class="chart-layout" id="charts">
-          <article class="panel wide">
-            <div class="panel-header">
-              <div>
-                <h3>每日分潤</h3>
-                <p>追蹤本月每天實際分潤累積狀況</p>
+            <article class="panel ops-panel value-panel">
+              <div class="panel-header">
+                <div>
+                  <span class="focus-tag value">高分潤</span>
+                  <h3>高價值加碼候選</h3>
+                  <p>單筆預估分潤較高，值得安排額外曝光。</p>
+                </div>
               </div>
-            </div>
-            <div class="chart-box"><canvas id="dailyRevenueChart"></canvas></div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-header">
-              <div>
-                <h3>品類成效</h3>
-                <p>依品類加總實際分潤</p>
-              </div>
-            </div>
-            <div class="chart-box"><canvas id="categoryChart"></canvas></div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-header">
-              <div>
-                <h3>內容類型比較</h3>
-                <p>分潤、CTR、CVR 綜合觀察</p>
-              </div>
-            </div>
-            <div class="chart-box"><canvas id="contentChart"></canvas></div>
-          </article>
+              <div class="ops-list" id="highCommissionList"></div>
+            </article>
+          </div>
         </section>
 
         <section class="table-layout">
           <article class="panel wide" id="actions">
             <div class="panel-header">
               <div>
-                <h3>待處理清單</h3>
-                <p>依選品日期整理尚待執行的商品</p>
+                <h3>所選月份未完成項目</h3>
+                <p>依選品日期整理該月份尚待執行的商品；不是僅限今天的待辦。</p>
               </div>
             </div>
             <div class="table-wrap">
@@ -189,6 +155,63 @@
               </table>
             </div>
           </article>
+        </section>
+
+        <section class="performance-section" id="charts" aria-labelledby="performanceTitle">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">成效分析</p>
+              <h3 id="performanceTitle">KPI 與趨勢圖表</h3>
+            </div>
+            <p>需要 CSV 內含曝光、點擊、訂單與實際分潤等成效資料，指標才會完整。</p>
+          </div>
+
+          <div class="kpi-grid" aria-label="所選月份成效指標">
+            <article class="kpi-card primary">
+              <div class="kpi-heading">
+                <span>所選月份實際分潤</span>
+                <i data-lucide="badge-dollar-sign"></i>
+              </div>
+              <strong id="monthlyRevenue">NT$0</strong>
+              <div class="goal-track"><div id="goalBar"></div></div>
+              <p id="goalText">距離 NT$5,000 還差 NT$5,000</p>
+            </article>
+
+            <article class="kpi-card">
+              <div class="kpi-heading"><span>訂單數</span><i data-lucide="shopping-bag"></i></div>
+              <strong id="monthlyOrders">0</strong>
+              <p id="conversionHint">CVR -</p>
+            </article>
+
+            <article class="kpi-card">
+              <div class="kpi-heading"><span>點擊數</span><i data-lucide="mouse-pointer-click"></i></div>
+              <strong id="monthlyClicks">0</strong>
+              <p id="ctrHint">CTR -</p>
+            </article>
+
+            <article class="kpi-card">
+              <div class="kpi-heading"><span>EPC</span><i data-lucide="activity"></i></div>
+              <strong id="monthlyEpc">-</strong>
+              <p>每次點擊收益</p>
+            </article>
+          </div>
+
+          <div class="chart-layout">
+            <article class="panel wide">
+              <div class="panel-header"><div><h3>每日分潤</h3><p>需要實際分潤資料，呈現所選月份每日累積狀況。</p></div></div>
+              <div class="chart-box"><canvas id="dailyRevenueChart"></canvas></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header"><div><h3>品類成效</h3><p>需要品類與實際分潤資料。</p></div></div>
+              <div class="chart-box"><canvas id="categoryChart"></canvas></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header"><div><h3>內容類型比較</h3><p>需要內容類型、分潤、曝光、點擊與訂單資料。</p></div></div>
+              <div class="chart-box"><canvas id="contentChart"></canvas></div>
+            </article>
+          </div>
         </section>
       </main>
     </div>

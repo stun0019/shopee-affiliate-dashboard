@@ -27,6 +27,15 @@ const fieldAliases = {
   nextAction: ["下次行動", "建議行動"],
   priority: ["優先級", "優先順序"],
   pitch: ["一句賣點", "賣點"],
+  selectionScore: ["選品總分", "選品分數"],
+  weeklyRole: ["本週角色", "主推角色"],
+  recommendedAngle: ["推薦發文角度", "發文角度"],
+  audience: ["適合族群", "目標族群", "受眾"],
+  risk: ["可能風險", "風險"],
+  hardGate: ["硬性門檻判定", "硬性門檻"],
+  suitableForPush: ["適合主推", "是否適合主推"],
+  whyNow: ["為什麼現在值得推", "現在值得推"],
+  funnelResult: ["漏斗結果"],
 };
 
 const state = {
@@ -125,16 +134,17 @@ function receiveRows(rows, message) {
 function normalizeRow(row) {
   const dateValue = cell(row, "selectionDate") || cell(row, "date");
   const monthValue = cell(row, "month") || monthFromDate(dateValue) || currentMonthKey();
-  const clicks = toNumber(cell(row, "clicks"));
-  const impressions = toNumber(cell(row, "impressions"));
-  const orders = toNumber(cell(row, "orders"));
+  const clicks = toNullableNumber(cell(row, "clicks"));
+  const impressions = toNullableNumber(cell(row, "impressions"));
+  const orders = toNullableNumber(cell(row, "orders"));
   const commissionRate = toRate(cell(row, "commissionRate"));
-  const sales = toNumber(cell(row, "sales"));
-  const explicitEstimated = toNumber(cell(row, "estimatedCommission"));
-  const revenue = toNumber(cell(row, "revenue"), sales && commissionRate ? sales * commissionRate : 0);
-  const status = cell(row, "status") || "未更新";
+  const explicitEstimated = toNullableNumber(cell(row, "estimatedCommission"));
+  const explicitRevenue = toNullableNumber(cell(row, "revenue"));
+  const revenue = explicitRevenue;
+  const status = normalizeStatus(cell(row, "status") || "未更新");
+  const priority = normalizePriority(cell(row, "priority"));
   const price = toNumber(cell(row, "price"));
-  const estimatedCommission = explicitEstimated || (price && commissionRate ? price * commissionRate : 0);
+  const estimatedCommission = explicitEstimated ?? (price && commissionRate ? price * commissionRate : null);
 
   return {
     date: dateValue,
@@ -149,17 +159,26 @@ function normalizeRow(row) {
     commissionRate,
     estimatedCommission,
     impressions,
-    interactions: toNumber(cell(row, "interactions")),
+    interactions: toNullableNumber(cell(row, "interactions")),
     clicks,
     orders,
     revenue,
-    ctr: toRate(cell(row, "ctr"), impressions ? clicks / impressions : null),
-    cvr: toRate(cell(row, "cvr"), clicks ? orders / clicks : null),
-    epc: toNumber(cell(row, "epc"), clicks ? revenue / clicks : null),
+    ctr: toNullableRate(cell(row, "ctr"), impressions && clicks !== null ? clicks / impressions : null),
+    cvr: toNullableRate(cell(row, "cvr"), clicks && orders !== null ? orders / clicks : null),
+    epc: toNullableNumber(cell(row, "epc"), clicks && revenue !== null ? revenue / clicks : null),
     status,
-    priority: cell(row, "priority"),
+    priority,
     pitch: cell(row, "pitch"),
-    nextAction: deriveNextAction(cell(row, "nextAction"), status, cell(row, "priority")),
+    selectionScore: toNullableNumber(cell(row, "selectionScore")),
+    weeklyRole: cell(row, "weeklyRole"),
+    recommendedAngle: cell(row, "recommendedAngle"),
+    audience: cell(row, "audience"),
+    risk: cell(row, "risk"),
+    hardGate: cell(row, "hardGate"),
+    suitableForPush: cell(row, "suitableForPush"),
+    whyNow: cell(row, "whyNow"),
+    funnelResult: cell(row, "funnelResult"),
+    nextAction: deriveNextAction(cell(row, "nextAction"), status, priority),
   };
 }
 
@@ -173,18 +192,19 @@ function render() {
 }
 
 function renderKpis(totals, monthRows) {
-  const gap = Math.max(MONTHLY_GOAL - totals.revenue, 0);
-  const progress = Math.min((totals.revenue / MONTHLY_GOAL) * 100, 100);
+  const actualRevenue = totals.revenue ?? 0;
+  const gap = Math.max(MONTHLY_GOAL - actualRevenue, 0);
+  const progress = Math.min((actualRevenue / MONTHLY_GOAL) * 100, 100);
   const actionRows = getActionRows(monthRows);
 
-  elements.monthlyRevenue.textContent = money(totals.revenue);
-  elements.monthlyOrders.textContent = number(totals.orders);
-  elements.monthlyClicks.textContent = number(totals.clicks);
-  elements.monthlyEpc.textContent = totals.clicks ? money(totals.revenue / totals.clicks) : "-";
+  elements.monthlyRevenue.textContent = totals.revenue === null ? "-" : money(totals.revenue);
+  elements.monthlyOrders.textContent = totals.orders === null ? "-" : number(totals.orders);
+  elements.monthlyClicks.textContent = totals.clicks === null ? "-" : number(totals.clicks);
+  elements.monthlyEpc.textContent = totals.clicks && totals.revenue !== null ? money(totals.revenue / totals.clicks) : "-";
   elements.goalBar.style.width = `${progress}%`;
-  elements.goalText.textContent = gap ? `距離 NT$5,000 還差 ${money(gap)}` : "本月目標已達成";
-  elements.conversionHint.textContent = `CVR ${totals.clicks ? percent(totals.orders / totals.clicks) : "-"}`;
-  elements.ctrHint.textContent = `CTR ${totals.impressions ? percent(totals.clicks / totals.impressions) : "-"}`;
+  elements.goalText.textContent = totals.revenue === null ? "尚無實際分潤資料" : gap ? `距離 NT$5,000 還差 ${money(gap)}` : "本月目標已達成";
+  elements.conversionHint.textContent = `CVR ${totals.clicks && totals.orders !== null ? percent(totals.orders / totals.clicks) : "-"}`;
+  elements.ctrHint.textContent = `CTR ${totals.impressions && totals.clicks !== null ? percent(totals.clicks / totals.impressions) : "-"}`;
   elements.actionCount.textContent = number(actionRows.length);
   elements.actionHint.textContent = actionRows.length ? `${actionRows[0].product}：${actionRows[0].status}` : "目前沒有需要處理的項目";
 }
@@ -192,10 +212,10 @@ function renderKpis(totals, monthRows) {
 function renderCharts(rows) {
   const byDate = groupBy(rows, (row) => row.date || "未填日期");
   const dailyLabels = Object.keys(byDate).sort();
-  drawLineChart("dailyRevenueChart", dailyLabels, dailyLabels.map((date) => sum(byDate[date], "revenue")));
+  drawLineChart("dailyRevenueChart", dailyLabels, dailyLabels.map((date) => sumNullable(byDate[date], "revenue") ?? 0));
 
   const categories = Object.entries(groupBy(rows, (row) => row.category))
-    .map(([label, items]) => ({ label, value: sum(items, "revenue") }))
+    .map(([label, items]) => ({ label, value: sumNullable(items, "revenue") ?? 0 }))
     .sort((a, b) => b.value - a.value)
     .slice(0, 8);
   drawBarChart("categoryChart", categories.map((item) => item.label), categories.map((item) => item.value));
@@ -205,14 +225,14 @@ function renderCharts(rows) {
   drawComboChart(
     "contentChart",
     contentLabels,
-    contentLabels.map((label) => sum(byContent[label], "revenue")),
+    contentLabels.map((label) => sumNullable(byContent[label], "revenue") ?? 0),
     contentLabels.map((label) => {
       const totals = summarize(byContent[label]);
-      return totals.impressions ? (totals.clicks / totals.impressions) * 100 : 0;
+      return totals.impressions && totals.clicks !== null ? (totals.clicks / totals.impressions) * 100 : 0;
     }),
     contentLabels.map((label) => {
       const totals = summarize(byContent[label]);
-      return totals.clicks ? (totals.orders / totals.clicks) * 100 : 0;
+      return totals.clicks && totals.orders !== null ? (totals.orders / totals.clicks) * 100 : 0;
     }),
   );
 }
@@ -347,33 +367,33 @@ function getActionRows(rows) {
 }
 
 function isPendingStatus(status) {
-  const value = clean(status);
+  const value = normalizeStatus(status);
   const excludedStatuses = ["未更新", "觀察", "淘汰", "已發文", "已完成", "完成", "停止主推"];
   return Boolean(value) && !excludedStatuses.some((excluded) => value.includes(excluded));
 }
 
 function summarize(rows) {
   return {
-    revenue: sum(rows, "revenue"),
-    orders: sum(rows, "orders"),
-    clicks: sum(rows, "clicks"),
-    impressions: sum(rows, "impressions"),
+    revenue: sumNullable(rows, "revenue"),
+    orders: sumNullable(rows, "orders"),
+    clicks: sumNullable(rows, "clicks"),
+    impressions: sumNullable(rows, "impressions"),
   };
 }
 
 function getRecommendedRows(rows) {
   return [...rows]
-    .filter((row) => row.product && (row.status.includes("待發文") || row.priority || row.estimatedCommission || row.revenue))
-    .sort((a, b) => recommendationScore(b) - recommendationScore(a));
+    .filter((row) => row.product && (row.selectionScore !== null || row.status.includes("待發文") || row.priority || row.estimatedCommission || row.revenue))
+    .sort(compareRecommendations);
 }
 
 function getLowPerformanceRows(rows) {
   return [...rows]
     .filter((row) => {
-      const ctrValue = row.impressions ? row.clicks / row.impressions : null;
+      const ctrValue = row.impressions && row.clicks !== null ? row.clicks / row.impressions : null;
       return (row.clicks >= 10 && row.orders === 0) || (row.impressions >= 500 && row.clicks === 0) || (ctrValue !== null && row.impressions >= 500 && ctrValue < 0.01);
     })
-    .sort((a, b) => b.clicks + b.impressions / 100 - (a.clicks + a.impressions / 100));
+    .sort((a, b) => (b.clicks ?? 0) + (b.impressions ?? 0) / 100 - ((a.clicks ?? 0) + (a.impressions ?? 0) / 100));
 }
 
 function getHighCommissionRows(rows) {
@@ -382,13 +402,12 @@ function getHighCommissionRows(rows) {
     .sort((a, b) => (b.estimatedCommission || b.revenue) - (a.estimatedCommission || a.revenue));
 }
 
-function recommendationScore(row) {
-  return priorityScore(row.priority) * 1000
-    + (row.status.includes("待發文") ? 700 : 0)
-    + (row.nextAction ? 160 : 0)
-    + (row.estimatedCommission || 0) * 8
-    + (row.revenue || 0) * 4
-    + (row.clicks || 0);
+function compareRecommendations(a, b) {
+  return compareNullableDescending(a.selectionScore, b.selectionScore)
+    || (priorityScore(b.priority) - priorityScore(a.priority))
+    || (dateFreshnessValue(b.date) - dateFreshnessValue(a.date))
+    || compareNullableDescending(a.estimatedCommission, b.estimatedCommission)
+    || String(a.product).localeCompare(String(b.product), "zh-Hant");
 }
 
 function actionSort(a, b) {
@@ -400,7 +419,7 @@ function actionSort(a, b) {
 }
 
 function priorityScore(priority) {
-  const value = clean(priority);
+  const value = normalizePriority(priority);
   if (value === "高") return 3;
   if (value === "中") return 2;
   if (value === "低") return 1;
@@ -423,8 +442,11 @@ function groupBy(rows, keyGetter) {
   }, {});
 }
 
-function sum(rows, key) {
-  return rows.reduce((total, row) => total + (Number(row[key]) || 0), 0);
+function sumNullable(rows, key) {
+  const values = rows
+    .map((row) => row[key])
+    .filter((value) => value !== null && value !== undefined && Number.isFinite(Number(value)));
+  return values.length ? values.reduce((total, value) => total + Number(value), 0) : null;
 }
 
 function getMonths(rows) {
@@ -444,6 +466,53 @@ function monthFromDate(value) {
 
 function clean(value) {
   return String(value ?? "").trim();
+}
+
+function normalizePriority(value) {
+  const normalized = clean(value).toUpperCase().replace(/\s+/g, "");
+  if (["A", "A級", "高", "高優先"].includes(normalized)) return "高";
+  if (["B", "B級", "中", "中優先"].includes(normalized)) return "中";
+  if (["C", "C級", "低", "低優先"].includes(normalized)) return "低";
+  return clean(value);
+}
+
+function normalizeStatus(value) {
+  return clean(value)
+    .replaceAll("待發佈", "待發文")
+    .replaceAll("待發布", "待發文")
+    .replaceAll("已發佈", "已發文")
+    .replaceAll("已發布", "已發文");
+}
+
+function compareNullableDescending(a, b) {
+  const aMissing = a === null || a === undefined || !Number.isFinite(Number(a));
+  const bMissing = b === null || b === undefined || !Number.isFinite(Number(b));
+  if (aMissing || bMissing) return aMissing === bMissing ? 0 : (aMissing ? 1 : -1);
+  return Number(b) - Number(a);
+}
+
+function dateFreshnessValue(value) {
+  const normalized = clean(value).replaceAll("/", "-");
+  const timestamp = Date.parse(normalized);
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function toNullableNumber(value, fallback = null) {
+  const text = clean(value);
+  if (!text) return fallback;
+  const parsed = Number(text.replace(/[NT$,\s]/g, "").replace("%", ""));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function toNullableRate(value, fallback = null) {
+  const text = clean(value);
+  if (!text) return fallback;
+  if (text.includes("%")) {
+    const parsedPercent = toNullableNumber(text, fallback);
+    return parsedPercent === null ? null : parsedPercent / 100;
+  }
+  const parsed = toNullableNumber(text, fallback);
+  return parsed !== null && parsed > 1 ? parsed / 100 : parsed;
 }
 
 function toNumber(value, fallback = 0) {
