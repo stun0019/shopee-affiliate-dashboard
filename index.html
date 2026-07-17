@@ -4,9 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>蝦皮分潤後台</title>
-    <link rel="stylesheet" href="./styles.css?v=0.6" />
+    <link rel="stylesheet" href="./styles.css?v=0.7" />
   </head>
   <body>
+    <a class="skip-link" href="#overview">跳到每日工作區</a>
     <div class="app-shell">
       <aside class="sidebar" aria-label="主要導覽">
         <div class="brand">
@@ -40,7 +41,7 @@
           </div>
         </header>
 
-        <section class="alert hidden" id="loadAlert" role="status"></section>
+        <section class="alert hidden" id="loadAlert" role="alert" aria-live="assertive" aria-atomic="true"></section>
 
         <section class="daily-start" id="overview" aria-labelledby="dailyStartTitle">
           <div class="section-heading">
@@ -54,7 +55,7 @@
           <div class="daily-grid">
             <article class="source-card panel">
               <div class="card-label">資料來源狀態</div>
-              <div class="source-status" id="sourceStatus">
+              <div class="source-status" id="sourceStatus" role="status" aria-live="polite" aria-atomic="true">
                 <span class="status-dot"></span>
                 <span>準備讀取資料</span>
               </div>
@@ -143,6 +144,7 @@
             </div>
             <div class="table-wrap">
               <table>
+                <caption class="sr-only">所選月份尚未完成的商品列表</caption>
                 <thead>
                   <tr>
                     <th>日期</th>
@@ -199,17 +201,17 @@
           <div class="chart-layout">
             <article class="panel wide">
               <div class="panel-header"><div><h3>每日分潤</h3><p>需要實際分潤資料，呈現所選月份每日累積狀況。</p></div></div>
-              <div class="chart-box"><canvas id="dailyRevenueChart"></canvas></div>
+              <div class="chart-box"><canvas id="dailyRevenueChart" role="img" aria-label="所選月份每日分潤趨勢圖">瀏覽器無法顯示每日分潤圖表。</canvas></div>
             </article>
 
             <article class="panel">
               <div class="panel-header"><div><h3>品類成效</h3><p>需要品類與實際分潤資料。</p></div></div>
-              <div class="chart-box"><canvas id="categoryChart"></canvas></div>
+              <div class="chart-box"><canvas id="categoryChart" role="img" aria-label="所選月份品類成效圖">瀏覽器無法顯示品類成效圖表。</canvas></div>
             </article>
 
             <article class="panel">
               <div class="panel-header"><div><h3>內容類型比較</h3><p>需要內容類型、分潤、曝光、點擊與訂單資料。</p></div></div>
-              <div class="chart-box"><canvas id="contentChart"></canvas></div>
+              <div class="chart-box"><canvas id="contentChart" role="img" aria-label="所選月份內容類型比較圖">瀏覽器無法顯示內容類型比較圖表。</canvas></div>
             </article>
           </div>
         </section>
