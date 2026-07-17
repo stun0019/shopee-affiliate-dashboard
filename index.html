@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>蝦皮分潤後台</title>
-    <link rel="stylesheet" href="./styles.css?v=0.7" />
+    <link rel="stylesheet" href="./styles.css?v=0.8" />
   </head>
   <body>
     <a class="skip-link" href="#overview">跳到每日工作區</a>
@@ -78,6 +78,14 @@
                   <strong id="actionCount">0</strong>
                 </div>
               </div>
+              <div class="post-lifecycle-summary" id="postLifecycleSummary" aria-label="發文表狀態數量">
+                <div class="lifecycle-stat review"><span>待審核</span><strong id="postPendingCount">-</strong></div>
+                <div class="lifecycle-stat approved"><span>已核准</span><strong id="postApprovedCount">-</strong></div>
+                <div class="lifecycle-stat scheduled"><span>已排程</span><strong id="postScheduledCount">-</strong></div>
+                <div class="lifecycle-stat published"><span>已發布</span><strong id="postPublishedCount">-</strong></div>
+                <div class="lifecycle-stat backfill"><span>待回填</span><strong id="postBackfillCount">-</strong></div>
+                <div class="lifecycle-stat completed"><span>已回填</span><strong id="postCompletedCount">-</strong></div>
+              </div>
               <ol class="workflow-steps" aria-label="分潤工作四階段">
                 <li><span>1</span><strong>待選品</strong><small>確認受眾與商品</small></li>
                 <li><span>2</span><strong>待寫文</strong><small>整理賣點與素材</small></li>
@@ -87,6 +95,50 @@
               <p class="action-hint" id="actionHint">目前沒有需要處理的項目</p>
             </article>
           </div>
+        </section>
+
+        <section class="publishing-board" aria-labelledby="publishingBoardTitle">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">發文流程 · 唯讀</p>
+              <h3 id="publishingBoardTitle">主推內容審核與回填狀態</h3>
+            </div>
+            <p>讀取發文表的獨立 status；此處不會核准、排程、發布或寫回試算表。</p>
+          </div>
+
+          <article class="panel post-source-panel">
+            <div class="post-source-heading">
+              <div class="source-status" id="postSourceStatus" role="status" aria-live="polite" aria-atomic="true">
+                <span class="status-dot"></span>
+                <span>準備讀取發文表</span>
+              </div>
+              <span class="readonly-badge">唯讀資料</span>
+            </div>
+            <div class="post-alert hidden" id="postLoadAlert" role="status" aria-live="polite"></div>
+
+            <div class="post-board-grid">
+              <section class="post-list-panel" aria-labelledby="postWorkflowTitle">
+                <div class="subsection-heading">
+                  <div>
+                    <p class="card-label">主推內容</p>
+                    <h4 id="postWorkflowTitle">發文生命週期</h4>
+                  </div>
+                  <span>依月份顯示</span>
+                </div>
+                <div class="post-list" id="postWorkflowList"></div>
+              </section>
+
+              <section class="backfill-panel" aria-labelledby="backfillTitle">
+                <div class="subsection-heading">
+                  <div>
+                    <p class="card-label">發布後追蹤</p>
+                    <h4 id="backfillTitle">24h／72h／7d 回填</h4>
+                  </div>
+                </div>
+                <div class="backfill-list" id="backfillQueue"></div>
+              </section>
+            </div>
+          </article>
         </section>
 
         <section class="weekly-focus" aria-labelledby="weeklyFocusTitle">
@@ -218,6 +270,6 @@
       </main>
     </div>
 
-    <script src="./app.js?v=0.5"></script>
+    <script src="./app.js?v=0.6"></script>
   </body>
 </html>

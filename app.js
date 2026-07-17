@@ -1,7 +1,20 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/1KqTwe-hXAaQW4CHMepyje6iCyzmffppPXZ8-aGLd29U/export?format=csv&gid=0";
+const POSTS_CSV_URL = "https://docs.google.com/spreadsheets/d/1KqTwe-hXAaQW4CHMepyje6iCyzmffppPXZ8-aGLd29U/gviz/tq?tqx=out:csv&gid=807648560";
 const MONTHLY_GOAL = 5000;
+const POST_STATUSES = ["draft", "pending_review", "approved", "scheduled", "published", "needs_backfill", "completed"];
+const POST_STATUS_META = {
+  draft: { label: "草稿", tone: "muted" },
+  pending_review: { label: "待審核", tone: "review" },
+  approved: { label: "已核准", tone: "approved" },
+  scheduled: { label: "已排程", tone: "scheduled" },
+  published: { label: "已發布", tone: "published" },
+  needs_backfill: { label: "待回填", tone: "backfill" },
+  completed: { label: "已回填", tone: "completed" },
+  unknown: { label: "狀態待確認", tone: "error" },
+};
 
 const fieldAliases = {
+  productId: ["product_id", "商品ID", "商品 ID"],
   date: ["日期", "紀錄日期", "發文日期"],
   selectionDate: ["選品日期", "評估日期"],
   month: ["月份", "月分"],
@@ -38,8 +51,48 @@ const fieldAliases = {
   funnelResult: ["漏斗結果"],
 };
 
+const postFieldAliases = {
+  date: ["日期", "date"],
+  platform: ["平台", "platform"],
+  contentType: ["貼文類型", "content_type"],
+  productName: ["商品名稱", "product_name"],
+  topic: ["貼文主題", "topic"],
+  postUrl: ["貼文URL", "post_url"],
+  affiliateUrl: ["分潤連結", "affiliate_url"],
+  publishedFlag: ["是否發布", "is_published"],
+  revenue: ["實際分潤", "revenue"],
+  notes: ["備註", "notes"],
+  postId: ["post_id"],
+  productId: ["product_id"],
+  status: ["status"],
+  mainText: ["main_text"],
+  replyText: ["reply_text"],
+  disclosure: ["disclosure"],
+  timeSlot: ["time_slot"],
+  selectionTier: ["selection_tier"],
+  draftSource: ["draft_source"],
+  assetSource: ["asset_source"],
+  experimentSource: ["experiment_source"],
+  affiliateUrlRef: ["affiliate_url_ref"],
+  backupProductId: ["backup_product_id"],
+  backupProductName: ["backup_product_name"],
+  backupReason: ["backup_reason"],
+  sourceCalendar: ["source_calendar"],
+};
+
+const POST_REQUIRED_HEADERS = [
+  "日期", "平台", "貼文類型", "商品名稱", "貼文URL", "分潤連結", "是否發布", "備註",
+  "post_id", "product_id", "status", "main_text", "reply_text", "disclosure", "time_slot",
+  "selection_tier", "draft_source", "asset_source", "experiment_source", "affiliate_url_ref",
+  "backup_product_id", "backup_product_name", "backup_reason", "source_calendar",
+];
+
 const state = {
   rows: [],
+  rawPostRows: null,
+  postRows: [],
+  postDataset: null,
+  postSource: { status: "idle", message: "準備讀取發文表" },
   month: currentMonthKey(),
   resizeTimer: null,
 };
@@ -64,12 +117,22 @@ const elements = {
   recommendList: document.querySelector("#recommendList"),
   lowPerformanceList: document.querySelector("#lowPerformanceList"),
   highCommissionList: document.querySelector("#highCommissionList"),
+  postSourceStatus: document.querySelector("#postSourceStatus"),
+  postLoadAlert: document.querySelector("#postLoadAlert"),
+  postPendingCount: document.querySelector("#postPendingCount"),
+  postApprovedCount: document.querySelector("#postApprovedCount"),
+  postScheduledCount: document.querySelector("#postScheduledCount"),
+  postPublishedCount: document.querySelector("#postPublishedCount"),
+  postBackfillCount: document.querySelector("#postBackfillCount"),
+  postCompletedCount: document.querySelector("#postCompletedCount"),
+  postWorkflowList: document.querySelector("#postWorkflowList"),
+  backfillQueue: document.querySelector("#backfillQueue"),
 };
 
 document.addEventListener("DOMContentLoaded", () => {
   hydrateIcons();
   bindEvents();
-  loadRemoteCsv();
+  loadAllData();
 });
 
 window.addEventListener("resize", () => {
@@ -78,7 +141,7 @@ window.addEventListener("resize", () => {
 });
 
 function bindEvents() {
-  elements.refreshButton.addEventListener("click", loadRemoteCsv);
+  elements.refreshButton.addEventListener("click", loadAllData);
   elements.monthSelect.addEventListener("change", (event) => {
     state.month = event.target.value;
     render();
@@ -121,6 +184,29 @@ async function loadRemoteCsv() {
   }
 }
 
+async function loadPostsCsv() {
+  state.postSource = { status: "loading", message: "正在讀取發文表" };
+  hidePostAlert();
+  renderPostWorkflow();
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(`${POSTS_CSV_URL}&cacheBust=${Date.now()}`, { signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    receivePostRows(parseCsv(await response.text()), "已連上發文表");
+  } catch (error) {
+    state.rawPostRows = null;
+    state.postRows = [];
+    state.postDataset = null;
+    state.postSource = { status: "error", message: "發文表暫時無法讀取" };
+    showPostAlert("商品池仍可使用；發文流程目前是部分資料。請稍後重新整理，或確認發文表 CSV 可公開讀取。");
+    renderPostWorkflow();
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 function receiveRows(rows, message) {
   state.rows = rows.map(normalizeRow).filter((row) => row.date || row.product || row.month);
   const months = getMonths(state.rows);
@@ -128,7 +214,35 @@ function receiveRows(rows, message) {
   populateMonthSelect(months);
   setSourceStatus("ready", `${message}，${state.rows.length} 筆`);
   hideAlert();
+  refreshPostDataset();
+  if (state.rawPostRows) syncPostSourceFromDataset("已連上發文表");
   render();
+}
+
+function receivePostRows(rows, message) {
+  state.rawPostRows = rows;
+  refreshPostDataset();
+  syncPostSourceFromDataset(message);
+  renderPostWorkflow();
+}
+
+function syncPostSourceFromDataset(message) {
+  const dataset = state.postDataset;
+  const issueCount = dataset ? dataset.issueCount : 0;
+  const status = dataset?.dataState === "ready" ? "ready" : dataset?.dataState === "empty" ? "empty" : "partial";
+  const suffix = issueCount ? `，${issueCount} 項資料需確認` : "";
+  state.postSource = { status, message: `${message}，${dataset?.rows.length || 0} 筆結構化資料${suffix}` };
+  if (status === "partial") {
+    showPostAlert("發文表已讀取，但部分欄位、狀態或商品關聯需要確認；可用資料仍會繼續顯示。");
+  } else {
+    hidePostAlert();
+  }
+}
+
+function refreshPostDataset() {
+  if (!state.rawPostRows) return;
+  state.postDataset = buildPostDataset(state.rawPostRows, state.rows);
+  state.postRows = state.postDataset.rows;
 }
 
 function normalizeRow(row) {
@@ -145,12 +259,15 @@ function normalizeRow(row) {
   const priority = normalizePriority(cell(row, "priority"));
   const price = toNumber(cell(row, "price"));
   const estimatedCommission = explicitEstimated ?? (price && commissionRate ? price * commissionRate : null);
+  const productUrl = cell(row, "productUrl");
+  const productId = cell(row, "productId") || deriveProductId(productUrl);
 
   return {
+    productId,
     date: dateValue,
     month: monthValue,
     postUrl: cell(row, "postUrl"),
-    productUrl: cell(row, "productUrl"),
+    productUrl,
     affiliateUrl: cell(row, "affiliateUrl"),
     contentType: cell(row, "contentType") || "未分類",
     product: cell(row, "product") || "未命名商品",
@@ -167,6 +284,7 @@ function normalizeRow(row) {
     cvr: toNullableRate(cell(row, "cvr"), clicks && orders !== null ? orders / clicks : null),
     epc: toNullableNumber(cell(row, "epc"), clicks && revenue !== null ? revenue / clicks : null),
     status,
+    selectionStatus: status,
     priority,
     pitch: cell(row, "pitch"),
     selectionScore: toNullableNumber(cell(row, "selectionScore")),
@@ -182,6 +300,192 @@ function normalizeRow(row) {
   };
 }
 
+function deriveProductId(productUrl) {
+  const match = clean(productUrl).match(/\/product_offer\/(\d+)/i);
+  return match ? `shopee-${match[1]}` : "";
+}
+
+function postCell(row, key) {
+  const aliases = postFieldAliases[key] || [];
+  const normalizedMap = Object.keys(row).reduce((map, header) => {
+    map[normalizeHeader(header)] = row[header];
+    return map;
+  }, {});
+
+  for (const alias of aliases) {
+    const value = normalizedMap[normalizeHeader(alias)];
+    if (clean(value)) return clean(value);
+  }
+
+  return null;
+}
+
+function normalizePublishingStatus(value) {
+  const normalized = clean(value).toLowerCase();
+  return POST_STATUSES.includes(normalized) ? normalized : "unknown";
+}
+
+function normalizePublishedFlag(value) {
+  const normalized = clean(value).toLowerCase();
+  if (["是", "yes", "true", "1"].includes(normalized)) return true;
+  if (["否", "no", "false", "0"].includes(normalized)) return false;
+  return null;
+}
+
+function normalizePostRow(row) {
+  const postId = postCell(row, "postId");
+  const isLegacy = !postId;
+  const publishingStatus = normalizePublishingStatus(postCell(row, "status"));
+  const publishedFlag = normalizePublishedFlag(postCell(row, "publishedFlag"));
+  const issues = [];
+  const requiredValues = {
+    post_id: postId,
+    product_id: postCell(row, "productId"),
+    日期: postCell(row, "date"),
+    平台: postCell(row, "platform"),
+    貼文類型: postCell(row, "contentType"),
+    商品名稱: postCell(row, "productName"),
+    分潤連結: postCell(row, "affiliateUrl"),
+    是否發布: postCell(row, "publishedFlag"),
+    status: postCell(row, "status"),
+    main_text: postCell(row, "mainText"),
+    reply_text: postCell(row, "replyText"),
+    disclosure: postCell(row, "disclosure"),
+    selection_tier: postCell(row, "selectionTier"),
+    draft_source: postCell(row, "draftSource"),
+    asset_source: postCell(row, "assetSource"),
+    experiment_source: postCell(row, "experimentSource"),
+    affiliate_url_ref: postCell(row, "affiliateUrlRef"),
+    source_calendar: postCell(row, "sourceCalendar"),
+  };
+
+  if (!isLegacy) {
+    for (const [field, value] of Object.entries(requiredValues)) {
+      if (!value) issues.push(`missing:${field}`);
+    }
+    if (publishingStatus === "unknown") issues.push("invalid:status");
+    if (publishedFlag === null) issues.push("invalid:是否發布");
+    if (!isHttpUrl(postCell(row, "affiliateUrl"))) issues.push("invalid:分潤連結");
+    if (["draft", "pending_review", "approved", "scheduled"].includes(publishingStatus) && publishedFlag === true) {
+      issues.push("conflict:status-published-flag");
+    }
+    if (["published", "needs_backfill", "completed"].includes(publishingStatus)) {
+      if (publishedFlag !== true) issues.push("conflict:status-published-flag");
+      if (!isHttpUrl(postCell(row, "postUrl"))) issues.push("missing:貼文URL");
+    }
+    if (publishingStatus === "scheduled" && !postCell(row, "timeSlot")) issues.push("missing:time_slot");
+  }
+
+  return {
+    raw: row,
+    isLegacy,
+    postId,
+    productId: postCell(row, "productId"),
+    date: postCell(row, "date"),
+    month: monthFromDate(postCell(row, "date")),
+    platform: postCell(row, "platform"),
+    contentType: postCell(row, "contentType"),
+    productName: postCell(row, "productName"),
+    topic: postCell(row, "topic"),
+    postUrl: postCell(row, "postUrl"),
+    affiliateUrl: postCell(row, "affiliateUrl"),
+    publishedFlag,
+    revenue: toNullableNumber(postCell(row, "revenue")),
+    notes: postCell(row, "notes"),
+    publishingStatus,
+    mainText: postCell(row, "mainText"),
+    replyText: postCell(row, "replyText"),
+    disclosure: postCell(row, "disclosure"),
+    timeSlot: postCell(row, "timeSlot"),
+    selectionTier: postCell(row, "selectionTier"),
+    draftSource: postCell(row, "draftSource"),
+    assetSource: postCell(row, "assetSource"),
+    experimentSource: postCell(row, "experimentSource"),
+    affiliateUrlRef: postCell(row, "affiliateUrlRef"),
+    backupProductId: postCell(row, "backupProductId"),
+    backupProductName: postCell(row, "backupProductName"),
+    backupReason: postCell(row, "backupReason"),
+    sourceCalendar: postCell(row, "sourceCalendar"),
+    issues,
+    dataState: issues.length ? "partial" : "ready",
+  };
+}
+
+function inspectPostSchema(rows) {
+  const headers = rows.headers || Object.keys(rows[0] || {});
+  const normalizedHeaders = new Set(headers.map(normalizeHeader));
+  const missingHeaders = POST_REQUIRED_HEADERS.filter((header) => !normalizedHeaders.has(normalizeHeader(header)));
+  const hasLegacyVariant = normalizedHeaders.has(normalizeHeader("貼文主題")) || normalizedHeaders.has(normalizeHeader("實際分潤"));
+  if (!hasLegacyVariant) missingHeaders.push("貼文主題或實際分潤");
+  return {
+    headers,
+    headerCount: headers.length,
+    missingHeaders,
+    valid: headers.length === 25 && missingHeaders.length === 0,
+  };
+}
+
+function joinPostsToProducts(posts, products) {
+  const productMap = new Map(products.filter((row) => row.productId).map((row) => [row.productId, row]));
+  return posts.map((post) => {
+    const productRow = productMap.get(post.productId) || null;
+    const issues = productRow ? [...post.issues] : [...post.issues, "missing:product-join"];
+    return {
+      ...post,
+      productRow,
+      issues,
+      dataState: issues.length ? "partial" : "ready",
+    };
+  });
+}
+
+function countPublishingStatuses(posts) {
+  return POST_STATUSES.reduce((counts, status) => {
+    counts[status] = posts.filter((post) => post.publishingStatus === status).length;
+    return counts;
+  }, { unknown: posts.filter((post) => post.publishingStatus === "unknown").length });
+}
+
+function buildPostDataset(rows, products = []) {
+  const schema = inspectPostSchema(rows);
+  const normalizedRows = rows.map(normalizePostRow);
+  const legacyRows = normalizedRows.filter((row) => row.isLegacy);
+  const structuredRows = normalizedRows.filter((row) => !row.isLegacy);
+  const postIds = structuredRows.map((row) => row.postId);
+  const duplicateIds = [...new Set(postIds.filter((id, index) => postIds.indexOf(id) !== index))];
+  const joinedRows = joinPostsToProducts(structuredRows, products).map((post) => {
+    if (!duplicateIds.includes(post.postId)) return post;
+    const issues = [...post.issues, "duplicate:post_id"];
+    return { ...post, issues, dataState: "partial" };
+  });
+  const rowIssueCount = joinedRows.reduce((total, row) => total + row.issues.length, 0);
+  const schemaIssueCount = (schema.valid ? 0 : 1) + schema.missingHeaders.length;
+  const issueCount = rowIssueCount + schemaIssueCount;
+  const dataState = !structuredRows.length ? "empty" : issueCount ? "partial" : "ready";
+  return {
+    rows: joinedRows,
+    legacyRows,
+    schema,
+    duplicateIds,
+    counts: countPublishingStatuses(joinedRows),
+    issueCount,
+    dataState,
+  };
+}
+
+function isHttpUrl(value) {
+  try {
+    const url = new URL(clean(value));
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch (error) {
+    return false;
+  }
+}
+
+function loadAllData() {
+  return Promise.allSettled([loadRemoteCsv(), loadPostsCsv()]);
+}
+
 function render() {
   const monthRows = state.rows.filter((row) => row.month === state.month);
   const totals = summarize(monthRows);
@@ -189,6 +493,7 @@ function render() {
   renderOps(monthRows);
   renderCharts(monthRows);
   renderActionRows(monthRows);
+  renderPostWorkflow();
 }
 
 function renderKpis(totals, monthRows) {
@@ -282,6 +587,111 @@ function renderActionRows(rows) {
   `).join("");
 }
 
+function renderPostWorkflow() {
+  if (!elements.postSourceStatus) return;
+  const sourceStatus = state.postSource.status;
+  elements.postSourceStatus.classList.remove("ready", "partial", "error", "loading", "empty");
+  elements.postSourceStatus.classList.add(sourceStatus);
+  const statusText = elements.postSourceStatus.querySelector("span:last-child");
+  if (statusText) statusText.textContent = state.postSource.message;
+
+  const visibleRows = state.postRows.filter((post) => !post.month || post.month === state.month);
+  const counts = countPublishingStatuses(visibleRows);
+  const countBindings = [
+    [elements.postPendingCount, counts.pending_review],
+    [elements.postApprovedCount, counts.approved],
+    [elements.postScheduledCount, counts.scheduled],
+    [elements.postPublishedCount, counts.published],
+    [elements.postBackfillCount, counts.needs_backfill],
+    [elements.postCompletedCount, counts.completed],
+  ];
+  const countsUnavailable = ["idle", "loading", "error"].includes(sourceStatus);
+  for (const [element, value] of countBindings) {
+    if (element) element.textContent = countsUnavailable ? "-" : number(value);
+  }
+
+  if (elements.postWorkflowList) renderPostWorkflowList(visibleRows);
+  if (elements.backfillQueue) renderBackfillQueue(visibleRows);
+}
+
+function renderPostWorkflowList(posts) {
+  if (["idle", "loading"].includes(state.postSource.status)) {
+    elements.postWorkflowList.innerHTML = postEmptyState("正在整理發文流程…");
+    return;
+  }
+  if (state.postSource.status === "error") {
+    elements.postWorkflowList.innerHTML = postEmptyState("發文表目前無法讀取；商品池與既有分析仍可使用。");
+    return;
+  }
+  const mainPosts = posts.filter((post) => post.selectionTier === "主推");
+  const displayPosts = (mainPosts.length ? mainPosts : posts).slice(0, 12);
+  if (!displayPosts.length) {
+    elements.postWorkflowList.innerHTML = postEmptyState("所選月份目前沒有結構化發文資料。");
+    return;
+  }
+
+  elements.postWorkflowList.innerHTML = displayPosts.map((post) => {
+    const meta = POST_STATUS_META[post.publishingStatus] || POST_STATUS_META.unknown;
+    const productName = post.productRow?.product || post.productName || "未命名商品";
+    const score = post.productRow?.selectionScore;
+    const category = post.productRow?.category;
+    const issueText = post.issues.length ? `資料待確認：${post.issues.length} 項` : "資料完整";
+    return `
+      <article class="post-item ${post.dataState === "partial" ? "is-partial" : ""}">
+        <div class="post-item-heading">
+          <div>
+            <span class="post-id">${escapeHtml(post.postId)}</span>
+            <h4>${escapeHtml(productName)}</h4>
+          </div>
+          <span class="post-status ${escapeAttribute(meta.tone)}">${escapeHtml(meta.label)}</span>
+        </div>
+        <div class="post-meta">
+          ${category ? `<span>${escapeHtml(category)}</span>` : ""}
+          ${score !== null && score !== undefined ? `<span>選品 ${number(score)} 分</span>` : ""}
+          <span>${escapeHtml(post.contentType || "未分類")}</span>
+        </div>
+        ${renderPostStageTrack(post.publishingStatus)}
+        <div class="post-item-footer">
+          <span class="data-quality ${post.dataState}">${escapeHtml(issueText)}</span>
+          ${isHttpUrl(post.affiliateUrl) ? `<a href="${escapeAttribute(post.affiliateUrl)}" target="_blank" rel="noopener noreferrer">查看分潤連結</a>` : ""}
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+function renderPostStageTrack(status) {
+  const stages = ["pending_review", "approved", "scheduled", "published", "needs_backfill", "completed"];
+  const currentIndex = stages.indexOf(status);
+  return `<ol class="post-stage-track" aria-label="發文生命週期">${stages.map((stage, index) => {
+    const meta = POST_STATUS_META[stage];
+    const stateClass = currentIndex < 0 ? "todo" : index < currentIndex ? "done" : index === currentIndex ? "current" : "todo";
+    return `<li class="${stateClass}"${index === currentIndex ? ' aria-current="step"' : ""}><span></span><small>${escapeHtml(meta.label)}</small></li>`;
+  }).join("")}</ol>`;
+}
+
+function renderBackfillQueue(posts) {
+  const rows = posts.filter((post) => post.publishingStatus === "needs_backfill");
+  if (!rows.length) {
+    const publishedCount = posts.filter((post) => ["published", "completed"].includes(post.publishingStatus)).length;
+    const message = publishedCount
+      ? "目前沒有待回填項目。已發布內容會依發文表 status 顯示在此。"
+      : "目前沒有已發布貼文，因此沒有 24h／72h／7d 回填任務。";
+    elements.backfillQueue.innerHTML = postEmptyState(message);
+    return;
+  }
+  elements.backfillQueue.innerHTML = rows.map((post) => `
+    <article class="backfill-item">
+      <strong>${escapeHtml(post.productRow?.product || post.productName || post.postId)}</strong>
+      <span>${escapeHtml(post.postId)} · 待回填</span>
+    </article>
+  `).join("");
+}
+
+function postEmptyState(message) {
+  return `<div class="post-empty">${escapeHtml(message)}</div>`;
+}
+
 function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -315,10 +725,12 @@ function parseCsv(text) {
   if (row.some((cell) => clean(cell))) rows.push(row);
 
   const headers = (rows.shift() || []).map((header) => clean(header).replace(/^\uFEFF/, ""));
-  return rows.map((cells) => headers.reduce((record, header, index) => {
+  const records = rows.map((cells) => headers.reduce((record, header, index) => {
     record[header] = cells[index] ?? "";
     return record;
   }, {}));
+  Object.defineProperty(records, "headers", { value: headers, enumerable: false });
+  return records;
 }
 
 function cell(row, key) {
@@ -562,6 +974,17 @@ function showAlert(message) {
 
 function hideAlert() {
   elements.loadAlert.classList.add("hidden");
+}
+
+function showPostAlert(message) {
+  if (!elements.postLoadAlert) return;
+  elements.postLoadAlert.textContent = message;
+  elements.postLoadAlert.classList.remove("hidden");
+}
+
+function hidePostAlert() {
+  if (!elements.postLoadAlert) return;
+  elements.postLoadAlert.classList.add("hidden");
 }
 
 function emptyRow(colspan, message) {
